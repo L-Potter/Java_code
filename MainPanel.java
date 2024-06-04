@@ -9,6 +9,13 @@ import java.awt.event.KeyEvent;
 import java.util.regex.PatternSyntaxException;
 import javax.swing.*;
 import javax.swing.table.*;
+import java.io.BufferedReader;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 
 public final class MainPanel extends JPanel {
   private final JTable table;
@@ -38,7 +45,7 @@ public final class MainPanel extends JPanel {
       @Override
       public void keyReleased(KeyEvent e) {
         String text = searchField.getText();
-        searchTable(text); // 始终调用 searchTable 方法，无论文本是否为空
+        searchTable(text); 
       }
     });
 
@@ -47,13 +54,8 @@ public final class MainPanel extends JPanel {
     col.setMaxWidth(60);
     col.setResizable(false);
 
-    model.addRowData(new RowData("Name 1", "comment..."));
-    model.addRowData(new RowData("Name 2", "Test"));
-    model.addRowData(new RowData("Name d", "ee"));
-    model.addRowData(new RowData("Name c", "Test cc"));
-    model.addRowData(new RowData("Name b", "Test bb"));
-    model.addRowData(new RowData("Name a", "ff"));
-    model.addRowData(new RowData("Name 0", "Test aa"));
+    model.addRowData(new RowData("Name 1", "/Users/linchung/Downloads/image-downloader-0.1.2"));
+
 
     table.setAutoCreateRowSorter(true);
     table.setFillsViewportHeight(true);
@@ -71,7 +73,7 @@ public final class MainPanel extends JPanel {
   private void searchTable(String text) {
     TableRowSorter<? extends TableModel> sorter = (TableRowSorter<? extends TableModel>) table.getRowSorter();
     if (text.isEmpty()) {
-      sorter.setRowFilter(null); // 移除过滤器，显示所有行
+      sorter.setRowFilter(null); 
       table.clearSelection();
     } else {
       try {
@@ -204,7 +206,57 @@ final class TablePopupMenu extends JPopupMenu {
         String name = (String) model.getValueAt(modelRow, 1);
         String comment = (String) model.getValueAt(modelRow, 2);
         System.out.println("Name: " + name + ", Comment: " + comment);
+      try {
+          StringBuilder sb = new StringBuilder("open ");
+          sb.append(comment);
+          String s = sb.toString();
+          Process process = Runtime.getRuntime().exec(s);
+      
+          process.getOutputStream().close();
+      
+          Thread stdoutReader = new Thread(() -> {
+              try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                  String line;
+                  while ((line = reader.readLine()) != null) {
+                      System.out.println(line);
+                  }
+                  process.getInputStream().close();
+              } catch (IOException excp) {
+                  System.err.println("Error reading stdout: " + excp.getMessage());
+                  excp.printStackTrace();
+              }
+          });
+      
+          Thread stderrReader = new Thread(() -> {
+              try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                  String line;
+                  while ((line = reader.readLine()) != null) {
+                      System.err.println(line);
+                  }
+                  process.getErrorStream().close();
+              } catch (IOException excp) {
+                  System.err.println("Error reading stderr: " + excp.getMessage());
+                  excp.printStackTrace();
+              }
+          });
+      
+          stdoutReader.start();
+          stderrReader.start();
+      
+          int exitCode = process.waitFor(); 
+          System.out.println("Process exited with code: " + exitCode);
+
+          stdoutReader.join();
+          stderrReader.join();
+      
+      } catch (IOException excp) {
+          System.err.println("Error executing command: " + excp.getMessage());
+          excp.printStackTrace();
+      } catch (InterruptedException excp) {
+          System.err.println("Thread interrupted: " + excp.getMessage());
+          excp.printStackTrace();
       }
+     }
     });
   }
 
