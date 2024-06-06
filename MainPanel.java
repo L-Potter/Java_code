@@ -1,21 +1,11 @@
-// javac -d . MainPanel.java 
-// java -cp . example.MainPanel
-
-package example;
+//package example;
 
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.util.regex.PatternSyntaxException;
+import java.awt.event.*;
+import java.io.*;
 import javax.swing.*;
 import javax.swing.table.*;
-import java.io.BufferedReader;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.util.regex.PatternSyntaxException;
 
 public final class MainPanel extends JPanel {
   private final JTable table;
@@ -45,7 +35,7 @@ public final class MainPanel extends JPanel {
       @Override
       public void keyReleased(KeyEvent e) {
         String text = searchField.getText();
-        searchTable(text); 
+        searchTable(text);
       }
     });
 
@@ -55,7 +45,6 @@ public final class MainPanel extends JPanel {
     col.setResizable(false);
 
     model.addRowData(new RowData("Name 1", "/Users/linchung/Downloads/image-downloader-0.1.2"));
-
 
     table.setAutoCreateRowSorter(true);
     table.setFillsViewportHeight(true);
@@ -73,7 +62,7 @@ public final class MainPanel extends JPanel {
   private void searchTable(String text) {
     TableRowSorter<? extends TableModel> sorter = (TableRowSorter<? extends TableModel>) table.getRowSorter();
     if (text.isEmpty()) {
-      sorter.setRowFilter(null); 
+      sorter.setRowFilter(null);
       table.clearSelection();
     } else {
       try {
@@ -89,6 +78,68 @@ public final class MainPanel extends JPanel {
     }
   }
 
+  public void ExportToCSVfile() {
+    try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("table_data.csv"), "utf-8"))) {
+      DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
+      int Row = defaultTableModel.getRowCount();
+      int Col = defaultTableModel.getColumnCount();
+
+      StringBuffer bufferHeader = new StringBuffer();
+      for (int j = 0; j < Col; j++) {
+        bufferHeader.append(defaultTableModel.getColumnName(j));
+        if (j != Col - 1) bufferHeader.append(", ");
+      }
+      writer.write(bufferHeader.toString() + "\r\n");
+
+      for (int i = 0; i < Row; i++) {
+        StringBuffer buffer = new StringBuffer();
+        for (int j = 0; j < Col; j++) {
+          buffer.append(defaultTableModel.getValueAt(i, j));
+          if (j != Col - 1) buffer.append(", ");
+        }
+        writer.write(buffer.toString() + "\r\n");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public void ImportFromCSVfile() {
+    try (BufferedReader br = new BufferedReader(new FileReader("table_data.csv"))) {
+      DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
+      defaultTableModel.setRowCount(0); // Clear existing data
+      String line;
+      boolean isHeader = true;
+
+      while ((line = br.readLine()) != null) {
+        if (isHeader) {
+          isHeader = false; // Skip header line
+          continue;
+        }
+        String[] values = line.split(", ");
+        defaultTableModel.addRow(values);
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private JMenuBar createMenuBar() {
+    JMenuBar menuBar = new JMenuBar();
+    JMenu fileMenu = new JMenu("File");
+
+    JMenuItem exportItem = new JMenuItem("Export to CSV");
+    exportItem.addActionListener(e -> ExportToCSVfile());
+    fileMenu.add(exportItem);
+
+    JMenuItem importItem = new JMenuItem("Import from CSV");
+    importItem.addActionListener(e -> ImportFromCSVfile());
+    fileMenu.add(importItem);
+
+    menuBar.add(fileMenu);
+    return menuBar;
+  }
+
   public static void main(String[] args) {
     EventQueue.invokeLater(MainPanel::createAndShowGui);
   }
@@ -102,9 +153,11 @@ public final class MainPanel extends JPanel {
       ex.printStackTrace();
       return;
     }
-    JFrame frame = new JFrame("@title@");
+    JFrame frame = new JFrame("files Notebook");
     frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-    frame.getContentPane().add(new MainPanel());
+    MainPanel mainPanel = new MainPanel();
+    frame.setJMenuBar(mainPanel.createMenuBar());
+    frame.getContentPane().add(mainPanel);
     frame.pack();
     frame.setLocationRelativeTo(null);
     frame.setVisible(true);
@@ -179,11 +232,48 @@ final class TablePopupMenu extends JPopupMenu {
   TablePopupMenu() {
     super();
     add("add").addActionListener(e -> {
-      JTable table = (JTable) getInvoker();
+      /*JTable table = (JTable) getInvoker();
       RowDataModel model = (RowDataModel) table.getModel();
       model.addRowData(new RowData("New row", ""));
       Rectangle r = table.getCellRect(model.getRowCount() - 1, 0, true);
       table.scrollRectToVisible(r);
+      */
+      JTable table = (JTable) getInvoker();
+      RowDataModel model = (RowDataModel) table.getModel();
+    
+      // Create a panel for the dialog
+      JPanel panel = new JPanel(new BorderLayout(5, 5));
+    
+      // Name input field
+      JTextField nameField = new JTextField(20);
+      panel.add(new JLabel("Name: "), BorderLayout.WEST);
+      panel.add(nameField, BorderLayout.CENTER);
+    
+      // File chooser
+      JFileChooser fileChooser = new JFileChooser();
+      fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+      panel.add(fileChooser, BorderLayout.SOUTH);
+    
+      int result = JOptionPane.showConfirmDialog(null, panel, "Add Row", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    
+      if (result == JOptionPane.OK_OPTION) {
+        String name = nameField.getText();
+        String comment = "";
+        try {
+          File selectedFile = fileChooser.getSelectedFile();
+          if (selectedFile != null) {
+            comment = selectedFile.getAbsolutePath();
+          } else {
+            throw new FileNotFoundException("No file selected.");
+          }
+          model.addRowData(new RowData(name, comment));
+          Rectangle r = table.getCellRect(model.getRowCount() - 1, 0, true);
+          table.scrollRectToVisible(r);
+        } catch (FileNotFoundException ex) {
+          ex.printStackTrace();
+          JOptionPane.showMessageDialog(null, "File not found: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+      }
     });
     addSeparator();
     delete = add("delete");
@@ -206,57 +296,57 @@ final class TablePopupMenu extends JPopupMenu {
         String name = (String) model.getValueAt(modelRow, 1);
         String comment = (String) model.getValueAt(modelRow, 2);
         System.out.println("Name: " + name + ", Comment: " + comment);
-      try {
+        try {
           StringBuilder sb = new StringBuilder("open ");
           sb.append(comment);
           String s = sb.toString();
           Process process = Runtime.getRuntime().exec(s);
-      
+
           process.getOutputStream().close();
-      
+
           Thread stdoutReader = new Thread(() -> {
-              try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                  String line;
-                  while ((line = reader.readLine()) != null) {
-                      System.out.println(line);
-                  }
-                  process.getInputStream().close();
-              } catch (IOException excp) {
-                  System.err.println("Error reading stdout: " + excp.getMessage());
-                  excp.printStackTrace();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+              String line;
+              while ((line = reader.readLine()) != null) {
+                System.out.println(line);
               }
+              process.getInputStream().close();
+            } catch (IOException excp) {
+              System.err.println("Error reading stdout: " + excp.getMessage());
+              excp.printStackTrace();
+            }
           });
-      
+
           Thread stderrReader = new Thread(() -> {
-              try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-                  String line;
-                  while ((line = reader.readLine()) != null) {
-                      System.err.println(line);
-                  }
-                  process.getErrorStream().close();
-              } catch (IOException excp) {
-                  System.err.println("Error reading stderr: " + excp.getMessage());
-                  excp.printStackTrace();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+              String line;
+              while ((line = reader.readLine()) != null) {
+                System.err.println(line);
               }
+              process.getErrorStream().close();
+            } catch (IOException excp) {
+              System.err.println("Error reading stderr: " + excp.getMessage());
+              excp.printStackTrace();
+            }
           });
-      
+
           stdoutReader.start();
           stderrReader.start();
-      
-          int exitCode = process.waitFor(); 
+
+          int exitCode = process.waitFor();
           System.out.println("Process exited with code: " + exitCode);
 
           stdoutReader.join();
           stderrReader.join();
-      
-      } catch (IOException excp) {
+
+        } catch (IOException excp) {
           System.err.println("Error executing command: " + excp.getMessage());
           excp.printStackTrace();
-      } catch (InterruptedException excp) {
+        } catch (InterruptedException excp) {
           System.err.println("Thread interrupted: " + excp.getMessage());
           excp.printStackTrace();
+        }
       }
-     }
     });
   }
 
