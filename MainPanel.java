@@ -79,23 +79,23 @@ public final class MainPanel extends JPanel {
   }
 
   public void ExportToCSVfile() {
-    try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("table_data.csv"), "utf-8"))) {
+    try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("table_data.csv"), "UTF-8"))) {
       DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
       int Row = defaultTableModel.getRowCount();
       int Col = defaultTableModel.getColumnCount();
 
-      StringBuffer bufferHeader = new StringBuffer();
-      for (int j = 0; j < Col; j++) {
-        bufferHeader.append(defaultTableModel.getColumnName(j));
-        if (j != Col - 1) bufferHeader.append(", ");
+      StringBuilder bufferHeader = new StringBuilder();
+      for (int j = 0; j < col; j++) {
+          bufferHeader.append(defaultTableModel.getColumnName(j));
+          if (j != col - 1) bufferHeader.append(",");
       }
       writer.write(bufferHeader.toString() + "\r\n");
 
-      for (int i = 0; i < Row; i++) {
-        StringBuffer buffer = new StringBuffer();
-        for (int j = 0; j < Col; j++) {
-          buffer.append(defaultTableModel.getValueAt(i, j));
-          if (j != Col - 1) buffer.append(", ");
+      for (int i = 0; i < row; i++) {
+        StringBuilder buffer = new StringBuilder();
+        for (int j = 0; j < col; j++) {
+            buffer.append(defaultTableModel.getValueAt(i, j));
+            if (j != col - 1) buffer.append(",");
         }
         writer.write(buffer.toString() + "\r\n");
       }
@@ -105,22 +105,25 @@ public final class MainPanel extends JPanel {
   }
 
   public void ImportFromCSVfile() {
-    try (BufferedReader br = new BufferedReader(new FileReader("table_data.csv"))) {
-      DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
-      defaultTableModel.setRowCount(0); // Clear existing data
-      String line;
-      boolean isHeader = true;
+    try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream("table_data.csv"), "UTF-8"))) {
+        DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
+        defaultTableModel.setRowCount(0); // Clear existing data
+        String line;
+        boolean isHeader = true;
 
-      while ((line = br.readLine()) != null) {
-        if (isHeader) {
-          isHeader = false; // Skip header line
-          continue;
+        while ((line = br.readLine()) != null) {
+            if (isHeader) {
+                isHeader = false; // Skip header line
+                continue;
+            }
+            String[] values = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
+            for (int i = 0; i < values.length; i++) {
+                values[i] = values[i].trim().replaceAll("^\"|\"$", "").replace("\"\"", "\"");
+            }
+            defaultTableModel.addRow(values);
         }
-        String[] values = line.split(", ");
-        defaultTableModel.addRow(values);
-      }
     } catch (IOException e) {
-      e.printStackTrace();
+        e.printStackTrace();
     }
   }
 
@@ -251,7 +254,7 @@ final class TablePopupMenu extends JPopupMenu {
     
       // File chooser
       JFileChooser fileChooser = new JFileChooser();
-      fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+      fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
       panel.add(fileChooser, BorderLayout.SOUTH);
     
       int result = JOptionPane.showConfirmDialog(null, panel, "Add Row", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
