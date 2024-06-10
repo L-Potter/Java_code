@@ -1,8 +1,10 @@
-//package example;
+package example;
 
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+
 import javax.swing.*;
 import javax.swing.table.*;
 import java.util.regex.PatternSyntaxException;
@@ -79,23 +81,23 @@ public final class MainPanel extends JPanel {
   }
 
   public void ExportToCSVfile() {
-    try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("table_data.csv"), "UTF-8"))) {
+    try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("table_data.csv"), StandardCharsets.UTF_8))) {
       DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
       int Row = defaultTableModel.getRowCount();
       int Col = defaultTableModel.getColumnCount();
 
-      StringBuilder bufferHeader = new StringBuilder();
-      for (int j = 0; j < col; j++) {
-          bufferHeader.append(defaultTableModel.getColumnName(j));
-          if (j != col - 1) bufferHeader.append(",");
+      StringBuffer bufferHeader = new StringBuffer();
+      for (int j = 0; j < Col; j++) {
+        bufferHeader.append(defaultTableModel.getColumnName(j));
+        if (j != Col - 1) bufferHeader.append(", ");
       }
       writer.write(bufferHeader.toString() + "\r\n");
 
-      for (int i = 0; i < row; i++) {
-        StringBuilder buffer = new StringBuilder();
-        for (int j = 0; j < col; j++) {
-            buffer.append(defaultTableModel.getValueAt(i, j));
-            if (j != col - 1) buffer.append(",");
+      for (int i = 0; i < Row; i++) {
+        StringBuffer buffer = new StringBuffer();
+        for (int j = 0; j < Col; j++) {
+          buffer.append(defaultTableModel.getValueAt(i, j));
+          if (j != Col - 1) buffer.append(", ");
         }
         writer.write(buffer.toString() + "\r\n");
       }
@@ -105,25 +107,22 @@ public final class MainPanel extends JPanel {
   }
 
   public void ImportFromCSVfile() {
-    try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream("table_data.csv"), "UTF-8"))) {
-        DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
-        defaultTableModel.setRowCount(0); // Clear existing data
-        String line;
-        boolean isHeader = true;
+    try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream("table_data.csv"), StandardCharsets.UTF_8))) {
+      DefaultTableModel defaultTableModel = (DefaultTableModel) table.getModel();
+      defaultTableModel.setRowCount(0); // Clear existing data
+      String line;
+      boolean isHeader = true;
 
-        while ((line = br.readLine()) != null) {
-            if (isHeader) {
-                isHeader = false; // Skip header line
-                continue;
-            }
-            String[] values = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
-            for (int i = 0; i < values.length; i++) {
-                values[i] = values[i].trim().replaceAll("^\"|\"$", "").replace("\"\"", "\"");
-            }
-            defaultTableModel.addRow(values);
+      while ((line = br.readLine()) != null) {
+        if (isHeader) {
+          isHeader = false; // Skip header line
+          continue;
         }
+        String[] values = line.split(", ");
+        defaultTableModel.addRow(values);
+      }
     } catch (IOException e) {
-        e.printStackTrace();
+      e.printStackTrace();
     }
   }
 
@@ -245,33 +244,49 @@ final class TablePopupMenu extends JPopupMenu {
       RowDataModel model = (RowDataModel) table.getModel();
     
       // Create a panel for the dialog
-      JPanel panel = new JPanel(new BorderLayout(5, 5));
+      JPanel panel = new JPanel();
+      panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS)); 
     
       // Name input field
       JTextField nameField = new JTextField(20);
       panel.add(new JLabel("Name: "), BorderLayout.WEST);
-      panel.add(nameField, BorderLayout.CENTER);
-    
-      // File chooser
-      JFileChooser fileChooser = new JFileChooser();
-      fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-      panel.add(fileChooser, BorderLayout.SOUTH);
+      panel.add(nameField, BorderLayout.NORTH);
+
+      // File field
+      JTextField fileField = new JTextField(20);
+      fileField.setEditable(false);
+      panel.add(new JLabel("File: "), BorderLayout.WEST);
+      panel.add(fileField, BorderLayout.CENTER);
+      
+      // File chooser button
+      JButton fileChooserButton = new JButton("Choose File");
+      fileChooserButton.addActionListener(new ActionListener() {
+          @Override
+          public void actionPerformed(ActionEvent e) {
+              JFileChooser fileChooser = new JFileChooser();
+              fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+              int returnVal = fileChooser.showOpenDialog(null);
+              if (returnVal == JFileChooser.APPROVE_OPTION) {
+                  File selectedFile = fileChooser.getSelectedFile();
+                  fileField.setText(selectedFile.getAbsolutePath());
+              }
+          }
+      });
+      panel.add(fileChooserButton, BorderLayout.EAST);
     
       int result = JOptionPane.showConfirmDialog(null, panel, "Add Row", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
     
       if (result == JOptionPane.OK_OPTION) {
         String name = nameField.getText();
-        String comment = "";
+        String comment = fileField.getText();
         try {
-          File selectedFile = fileChooser.getSelectedFile();
-          if (selectedFile != null) {
-            comment = selectedFile.getAbsolutePath();
+          if (!comment.isEmpty()) {
+            model.addRowData(new RowData(name, comment));
+            Rectangle r = table.getCellRect(model.getRowCount() - 1, 0, true);
+            table.scrollRectToVisible(r);
           } else {
             throw new FileNotFoundException("No file selected.");
           }
-          model.addRowData(new RowData(name, comment));
-          Rectangle r = table.getCellRect(model.getRowCount() - 1, 0, true);
-          table.scrollRectToVisible(r);
         } catch (FileNotFoundException ex) {
           ex.printStackTrace();
           JOptionPane.showMessageDialog(null, "File not found: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
