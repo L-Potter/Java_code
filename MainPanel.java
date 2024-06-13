@@ -31,6 +31,7 @@ public final class MainPanel extends JPanel {
         return c;
       }
     };
+    
 
     searchField = new JTextField(20);
     searchField.addKeyListener(new KeyAdapter() {
@@ -41,10 +42,11 @@ public final class MainPanel extends JPanel {
       }
     });
 
-    TableColumn col = table.getColumnModel().getColumn(0);
-    col.setMinWidth(60);
-    col.setMaxWidth(60);
-    col.setResizable(false);
+    TableColumn noColumn = table.getColumnModel().getColumn(0);
+    noColumn.setMinWidth(0);
+    noColumn.setMaxWidth(0);
+    noColumn.setPreferredWidth(0);
+    noColumn.setResizable(false);
 
     model.addRowData(new RowData("Name 1", "/Users/linchung/Downloads/image-downloader-0.1.2"));
 
@@ -315,8 +317,9 @@ final class TablePopupMenu extends JPopupMenu {
         String comment = (String) model.getValueAt(modelRow, 2);
         System.out.println("Name: " + name + ", Comment: " + comment);
         try {
-          StringBuilder sb = new StringBuilder("open ");
+          StringBuilder sb = new StringBuilder("powershell.exe Invoke-Item \'");
           sb.append(comment);
+          sb.append("\'");
           String s = sb.toString();
           Process process = Runtime.getRuntime().exec(s);
 
